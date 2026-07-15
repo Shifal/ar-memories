@@ -11,6 +11,7 @@ from app.services.media_validation import (
     MediaValidationError,
 )
 from app.services.mind_file_service import generate_mind_file, MindFileGenerationError
+from app.services.embedding_service import generate_embedding, EmbeddingError
 
 router = APIRouter(prefix="/memories", tags=["memories"])
 
@@ -52,6 +53,16 @@ async def create_memory(
     db.add(memory)
     db.commit()
     db.refresh(memory)
+
+    if caption:
+        try:
+            vector = generate_embedding(caption, task_type="RETRIEVAL_DOCUMENT")
+            embedding_row = models.MemoryEmbedding(memory_id=memory.id, embedding=vector)
+            db.add(embedding_row)
+            db.commit()
+        except EmbeddingError as e:
+            print(f"Warning: embedding generation failed: {e}")
+
     return memory
 
 

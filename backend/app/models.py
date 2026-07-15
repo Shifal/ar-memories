@@ -1,6 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 
+from pgvector.sqlalchemy import Vector
 from sqlalchemy import Column, String, DateTime, ForeignKey, Text
 from sqlalchemy.dialects.postgresql import UUID
 
@@ -24,4 +25,12 @@ class Memory(Base):
     video_url = Column(String, nullable=False)
     caption = Column(Text, nullable=True)
     mind_file_url = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+class MemoryEmbedding(Base):
+    __tablename__ = "memory_embeddings"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    memory_id = Column(UUID(as_uuid=True), ForeignKey("memories.id"), nullable=False, unique=True, index=True)
+    embedding = Column(Vector(768), nullable=False)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
