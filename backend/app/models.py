@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import Column, String, DateTime
+from sqlalchemy import Column, String, DateTime, ForeignKey, Text
 from sqlalchemy.dialects.postgresql import UUID
 
 from app.database import Base
@@ -13,4 +13,15 @@ class User(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     email = Column(String, unique=True, nullable=False, index=True)
     hashed_password = Column(String, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+class Memory(Base):
+    __tablename__ = "memories"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
+    photo_url = Column(String, nullable=False)
+    video_url = Column(String, nullable=False)
+    caption = Column(Text, nullable=True)
+    mind_file_url = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
