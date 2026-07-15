@@ -1,0 +1,9 @@
+{
+  "name": "mind-compiler",
+  "version": "1.0.0",
+  "type": "module",
+  "dependencies": {
+    "canvas": "^3.2.3",
+    "mind-ar": "^1.2.5"
+  }
+}

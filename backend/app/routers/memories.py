@@ -10,6 +10,7 @@ from app.services.media_validation import (
     validate_video,
     MediaValidationError,
 )
+from app.services.mind_file_service import generate_mind_file, MindFileGenerationError
 
 router = APIRouter(prefix="/memories", tags=["memories"])
 
@@ -34,11 +35,19 @@ async def create_memory(
     photo_url = upload_file("photos", photo_bytes, photo.filename, photo.content_type)
     video_url = upload_file("videos", video_bytes, video.filename, video.content_type)
 
+    mind_file_url = None
+    try:
+        mind_bytes = generate_mind_file(photo_bytes)
+        mind_file_url = upload_file("mind-files", mind_bytes, "target.mind", "application/octet-stream")
+    except MindFileGenerationError as e:
+        print(f"Warning: mind file generation failed: {e}")
+
     memory = models.Memory(
         user_id=current_user.id,
         photo_url=photo_url,
         video_url=video_url,
         caption=caption,
+        mind_file_url=mind_file_url,
     )
     db.add(memory)
     db.commit()
