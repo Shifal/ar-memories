@@ -36,3 +36,13 @@ class MemoryOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class AskRequest(BaseModel):
+    question: str
+
+
+class AskResponse(BaseModel):
+    question: str
+    answer: str
+    was_grounded: bool

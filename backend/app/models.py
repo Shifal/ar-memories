@@ -34,3 +34,13 @@ class MemoryEmbedding(Base):
     memory_id = Column(UUID(as_uuid=True), ForeignKey("memories.id"), nullable=False, unique=True, index=True)
     embedding = Column(Vector(768), nullable=False)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+class QueryLog(Base):
+    __tablename__ = "query_logs"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    memory_id = Column(UUID(as_uuid=True), ForeignKey("memories.id"), nullable=False, index=True)
+    question = Column(Text, nullable=False)
+    answer = Column(Text, nullable=False)
+    was_grounded = Column(String, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
