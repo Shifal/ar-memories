@@ -55,3 +55,6 @@ class UserUpdate(BaseModel):
 class ChangePasswordRequest(BaseModel):
     current_password: str
     new_password: str
+
+class MemoryUpdate(BaseModel):
+    caption: str | None = None

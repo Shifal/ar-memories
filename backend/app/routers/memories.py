@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException
 from sqlalchemy.orm import Session
+import uuid
 
 from app.database import get_db
 from app.deps import get_current_user
@@ -72,3 +73,49 @@ def list_memories(
     current_user: models.User = Depends(get_current_user),
 ):
     return db.query(models.Memory).filter(models.Memory.user_id == current_user.id).all()
+
+
+@router.patch("/{memory_id}", response_model=schemas.MemoryOut)
+def update_memory(
+    memory_id: uuid.UUID,
+    updates: schemas.MemoryUpdate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    memory = (
+        db.query(models.Memory)
+        .filter(models.Memory.id == memory_id, models.Memory.user_id == current_user.id)
+        .first()
+    )
+    if not memory:
+        raise HTTPException(status_code=404, detail="Memory not found")
+
+    if updates.caption is not None:
+        memory.caption = updates.caption
+
+    db.commit()
+    db.refresh(memory)
+    return memory
+
+
+@router.delete("/{memory_id}", status_code=204)
+def delete_memory(
+    memory_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    memory = (
+        db.query(models.Memory)
+        .filter(models.Memory.id == memory_id, models.Memory.user_id == current_user.id)
+        .first()
+    )
+    if not memory:
+        raise HTTPException(status_code=404, detail="Memory not found")
+
+    # Clean up related rows first (foreign key dependencies)
+    db.query(models.MemoryEmbedding).filter(models.MemoryEmbedding.memory_id == memory_id).delete()
+    db.query(models.QueryLog).filter(models.QueryLog.memory_id == memory_id).delete()
+
+    db.delete(memory)
+    db.commit()
+    return None

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  Animated,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
@@ -20,6 +21,10 @@ export default function AddMemoryScreen({ token }: { token: string }) {
   const [video, setVideo] = useState<ImagePicker.ImagePickerAsset | null>(null);
   const [caption, setCaption] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [uploadPercent, setUploadPercent] = useState(0);
+  const [stageLabel, setStageLabel] = useState("");
+
+  const progressAnim = useRef(new Animated.Value(0)).current;
 
   const pickPhoto = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -37,6 +42,14 @@ export default function AddMemoryScreen({ token }: { token: string }) {
     if (!result.canceled) setVideo(result.assets[0]);
   };
 
+  const animateProgressTo = (value: number) => {
+    Animated.timing(progressAnim, {
+      toValue: value,
+      duration: 300,
+      useNativeDriver: false,
+    }).start();
+  };
+
   const upload = async () => {
     if (!photo || !video) {
       Alert.alert("Missing files", "Please select both a photo and a video.");
@@ -44,44 +57,87 @@ export default function AddMemoryScreen({ token }: { token: string }) {
     }
 
     setUploading(true);
+    setUploadPercent(0);
+    animateProgressTo(0);
+    setStageLabel("Preparing upload...");
+
     const formData = new FormData();
     formData.append("photo", { uri: photo.uri, name: "photo.jpg", type: "image/jpeg" } as any);
     formData.append("video", { uri: video.uri, name: "video.mp4", type: "video/mp4" } as any);
     formData.append("caption", caption);
 
     try {
-      const res = await fetch(`${API_BASE}/memories/`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "multipart/form-data" },
-        body: formData,
-      });
+      await new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open("POST", `${API_BASE}/memories/`);
+        xhr.setRequestHeader("Authorization", `Bearer ${token}`);
 
-      if (!res.ok) {
-        const errText = await res.text();
-        Alert.alert("Upload failed", errText);
-        return;
-      }
+        xhr.upload.onprogress = (event) => {
+          if (event.lengthComputable) {
+            // Upload transfer itself is roughly the first 60% of the whole process
+            // (the rest is server-side .mind generation + embedding, which we can't
+            // measure directly, so we show an indeterminate "processing" stage after).
+            const transferPercent = Math.round((event.loaded / event.total) * 60);
+            setUploadPercent(transferPercent);
+            animateProgressTo(transferPercent);
+            setStageLabel(
+              transferPercent < 60 ? "Uploading photo & video..." : "Upload complete, processing..."
+            );
+          }
+        };
+
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            setUploadPercent(100);
+            animateProgressTo(100);
+            setStageLabel("Done!");
+            resolve();
+          } else {
+            reject(new Error(xhr.responseText || `Server error (${xhr.status})`));
+          }
+        };
+
+        xhr.onerror = () => reject(new Error("Network error — could not reach the server."));
+
+        // Once the transfer itself finishes (readyState 4 isn't reached yet, but upload
+        // side is done), nudge the bar into an indeterminate "still working" state
+        // since .mind generation + embedding happen server-side after transfer completes.
+        xhr.upload.onload = () => {
+          setStageLabel("Generating AR tracking file...");
+          animateProgressTo(85);
+        };
+
+        xhr.send(formData);
+      });
 
       Alert.alert("Success", "Memory uploaded!");
       setPhoto(null);
       setVideo(null);
       setCaption("");
-    } catch (err) {
-      Alert.alert("Error", "Could not reach the server.");
+    } catch (err: any) {
+      Alert.alert("Upload failed", err.message || "Something went wrong.");
     } finally {
       setUploading(false);
+      setUploadPercent(0);
+      progressAnim.setValue(0);
+      setStageLabel("");
     }
   };
 
+  const progressWidth = progressAnim.interpolate({
+    inputRange: [0, 100],
+    outputRange: ["0%", "100%"],
+  });
+
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
-      <ScrollView style={styles.screen} contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets>
+      <ScrollView style={styles.screen} contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
         <Text style={styles.eyebrow}>New Memory</Text>
         <Text style={styles.title}>Add a Memory</Text>
         <Text style={styles.subtitle}>a photo, a video, a moment to keep</Text>
 
         <Text style={styles.label}>Photo</Text>
-        <TouchableOpacity style={styles.pickerBox} onPress={pickPhoto}>
+        <TouchableOpacity style={styles.pickerBox} onPress={pickPhoto} disabled={uploading}>
           {photo ? (
             <Image source={{ uri: photo.uri }} style={styles.preview} />
           ) : (
@@ -93,7 +149,7 @@ export default function AddMemoryScreen({ token }: { token: string }) {
         </TouchableOpacity>
 
         <Text style={styles.label}>Video</Text>
-        <TouchableOpacity style={styles.pickerBox} onPress={pickVideo}>
+        <TouchableOpacity style={styles.pickerBox} onPress={pickVideo} disabled={uploading}>
           <View style={styles.pickerEmpty}>
             <Ionicons
               name={video ? "checkmark-circle" : "videocam-outline"}
@@ -112,7 +168,17 @@ export default function AddMemoryScreen({ token }: { token: string }) {
           value={caption}
           onChangeText={setCaption}
           multiline
+          editable={!uploading}
         />
+
+        {uploading && (
+          <View style={styles.progressWrap}>
+            <View style={styles.progressTrack}>
+              <Animated.View style={[styles.progressFill, { width: progressWidth }]} />
+            </View>
+            <Text style={styles.progressLabel}>{stageLabel}</Text>
+          </View>
+        )}
 
         <TouchableOpacity
           style={[styles.button, uploading && styles.buttonDisabled]}
@@ -180,7 +246,7 @@ const styles = StyleSheet.create({
     minHeight: 80,
     borderWidth: 1,
     borderColor: "#e8dcc3",
-    marginBottom: 26,
+    marginBottom: 10,
     textAlignVertical: "top",
     color: "#3B2A20",
     shadowColor: "#3B2A20",
@@ -189,11 +255,31 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 1,
   },
+  progressWrap: { marginTop: 16, marginBottom: 6 },
+  progressTrack: {
+    height: 8,
+    backgroundColor: "#e8dcc3",
+    borderRadius: 4,
+    overflow: "hidden",
+  },
+  progressFill: {
+    height: "100%",
+    backgroundColor: "#D6614A",
+    borderRadius: 4,
+  },
+  progressLabel: {
+    fontSize: 12,
+    color: "#7d6a55",
+    marginTop: 8,
+    textAlign: "center",
+    fontStyle: "italic",
+  },
   button: {
     backgroundColor: "#D6614A",
     paddingVertical: 16,
     borderRadius: 8,
     alignItems: "center",
+    marginTop: 16,
     shadowColor: "#b84e39",
     shadowOpacity: 0.4,
     shadowOffset: { width: 0, height: 3 },
