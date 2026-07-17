@@ -12,31 +12,53 @@ import {
 } from "react-native";
 import { API_BASE } from "../config";
 
-export default function LoginScreen({
-  onLoginSuccess,
-  onGoToRegister,
+export default function RegisterScreen({
+  onRegisterSuccess,
+  onGoToLogin,
 }: {
-  onLoginSuccess: (token: string) => void;
-  onGoToRegister: () => void;
+  onRegisterSuccess: (token: string) => void;
+  onGoToLogin: () => void;
 }) {
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const handleLogin = async () => {
+  const handleRegister = async () => {
+    if (!email || !password) {
+      Alert.alert("Missing info", "Email and password are required.");
+      return;
+    }
+
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/auth/login`, {
+      const signupRes = await fetch(`${API_BASE}/auth/signup`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password, name }),
+      });
+
+      if (!signupRes.ok) {
+        const err = await signupRes.json().catch(() => ({}));
+        Alert.alert("Sign up failed", err.detail || "Something went wrong.");
+        return;
+      }
+
+      // Auto-login right after successful signup
+      const loginRes = await fetch(`${API_BASE}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
       });
-      if (!res.ok) {
-        Alert.alert("Login failed", "Check your email and password.");
+
+      if (!loginRes.ok) {
+        Alert.alert("Account created", "Please log in with your new account.");
+        onGoToLogin();
         return;
       }
-      const data = await res.json();
-      onLoginSuccess(data.access_token);
+
+      const data = await loginRes.json();
+      onRegisterSuccess(data.access_token);
     } catch (err) {
       Alert.alert("Error", "Could not reach the server. Check your network/IP.");
     } finally {
@@ -47,8 +69,17 @@ export default function LoginScreen({
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-        <Text style={styles.title}>AR Memories</Text>
-        <Text style={styles.subtitle}>where a photo remembers what happened</Text>
+        <Text style={styles.title}>Create Account</Text>
+        <Text style={styles.subtitle}>start collecting your memories</Text>
+
+        <Text style={styles.label}>Name</Text>
+        <TextInput
+          style={styles.input}
+          value={name}
+          onChangeText={setName}
+          placeholder="Your name"
+          placeholderTextColor="#c9bda4"
+        />
 
         <Text style={styles.label}>Email</Text>
         <TextInput
@@ -56,6 +87,7 @@ export default function LoginScreen({
           value={email}
           onChangeText={setEmail}
           autoCapitalize="none"
+          placeholder="you@example.com"
           placeholderTextColor="#c9bda4"
         />
 
@@ -65,16 +97,17 @@ export default function LoginScreen({
           value={password}
           onChangeText={setPassword}
           secureTextEntry
+          placeholder="Choose a password"
           placeholderTextColor="#c9bda4"
         />
 
-        <TouchableOpacity style={styles.button} onPress={handleLogin} disabled={loading}>
-          <Text style={styles.buttonText}>{loading ? "Logging in..." : "Log In"}</Text>
+        <TouchableOpacity style={styles.button} onPress={handleRegister} disabled={loading}>
+          <Text style={styles.buttonText}>{loading ? "Creating account..." : "Sign Up"}</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={onGoToRegister} style={styles.linkWrap}>
+        <TouchableOpacity onPress={onGoToLogin} style={styles.linkWrap}>
           <Text style={styles.linkText}>
-            Don't have an account? <Text style={styles.linkTextBold}>Sign up</Text>
+            Already have an account? <Text style={styles.linkTextBold}>Log in</Text>
           </Text>
         </TouchableOpacity>
       </ScrollView>
@@ -84,9 +117,9 @@ export default function LoginScreen({
 
 const styles = StyleSheet.create({
   container: { flexGrow: 1, backgroundColor: "#F2E8D5", justifyContent: "center", padding: 28 },
-  title: { fontSize: 30, fontWeight: "700", color: "#3B2A20", textAlign: "center" },
+  title: { fontSize: 28, fontWeight: "700", color: "#3B2A20", textAlign: "center" },
   subtitle: {
-    fontSize: 15,
+    fontSize: 14,
     color: "#7d6a55",
     textAlign: "center",
     marginTop: 4,

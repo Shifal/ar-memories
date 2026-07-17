@@ -6,6 +6,7 @@ from datetime import datetime
 class UserCreate(BaseModel):
     email: EmailStr
     password: str
+    name: str | None = None
 
 
 class UserLogin(BaseModel):
@@ -16,6 +17,7 @@ class UserLogin(BaseModel):
 class UserOut(BaseModel):
     id: uuid.UUID
     email: EmailStr
+    name: str | None
 
     class Config:
         from_attributes = True
@@ -46,3 +48,10 @@ class AskResponse(BaseModel):
     question: str
     answer: str
     was_grounded: bool
+
+class UserUpdate(BaseModel):
+    name: str | None = None
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
