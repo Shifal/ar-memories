@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Scan</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        background: #000;
+        overflow: hidden;
+      }
+
+      #arScreen {
+        position: fixed;
+        inset: 0;
+        background: #000;
+        width: 100vw;
+        height: 100dvh;
+      }
+
+      #ar-container {
+        width: 100%;
+        height: 100%;
+      }
+
+      .ar-status {
+        position: absolute;
+        bottom: 30px;
+        left: 50%;
+        transform: translateX(-50%);
+        font-family: "IBM Plex Mono", monospace, sans-serif;
+        font-size: 12px;
+        letter-spacing: 0.5px;
+        color: #f2e8d5;
+        background: rgba(0, 0, 0, 0.5);
+        padding: 8px 18px;
+        border-radius: 20px;
+        z-index: 10;
+        text-align: center;
+        display: none;
+      }
+
+      #startOverlay {
+        position: fixed;
+        inset: 0;
+        background: #14100d;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        z-index: 20;
+      }
+      #startOverlay p {
+        color: #f2e8d5;
+        font-family: sans-serif;
+        font-size: 15px;
+        margin-bottom: 20px;
+        text-align: center;
+        padding: 0 30px;
+      }
+      #startButton {
+        padding: 14px 34px;
+        font-size: 15px;
+        font-weight: 700;
+        border: none;
+        border-radius: 6px;
+        background: #d6614a;
+        color: #fffdf8;
+        cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="arScreen">
+      <div id="ar-container"></div>
+      <div class="ar-status" id="arStatus">
+        Point your camera at the photo...
+      </div>
+    </div>
+
+    <div id="startOverlay">
+      <p>Tap below to open your camera<br />and scan the photo</p>
+      <button id="startButton">Start Scan</button>
+    </div>
+
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+          "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
+          "mindar-image-three": "https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js"
+        }
+      }
+    </script>
+
+    <script type="module">
+      import * as THREE from "three";
+      import { MindARThree } from "mindar-image-three";
+
+      function getParam(name) {
+        return new URLSearchParams(window.location.search).get(name);
+      }
+
+      const mindFileUrl = getParam("mind");
+      const videoUrl = getParam("video");
+      const photoUrl = getParam("photo");
+
+      const startButton = document.getElementById("startButton");
+      const startOverlay = document.getElementById("startOverlay");
+      const statusEl = document.getElementById("arStatus");
+      const debugP = startOverlay.querySelector("p");
+
+      let mindarThree = null;
+      let videoEl = null;
+
+      if (!mindFileUrl || !videoUrl) {
+        debugP.textContent = "Missing memory data.";
+        startButton.style.display = "none";
+      } else {
+        startButton.addEventListener("click", startAR);
+      }
+
+      function loadImageDimensions(url) {
+        return new Promise((resolve, reject) => {
+          const img = new Image();
+          img.crossOrigin = "anonymous";
+          img.onload = () =>
+            resolve({ width: img.naturalWidth, height: img.naturalHeight });
+          img.onerror = reject;
+          img.src = url;
+        });
+      }
+
+      async function startAR() {
+        startOverlay.style.display = "none";
+        statusEl.style.display = "block";
+
+        try {
+          // wait one frame so the browser finishes layout before MindAR reads container size
+          await new Promise(requestAnimationFrame);
+
+          // Get the real photo aspect ratio so the video overlay matches it exactly
+          let planeHeight = 1.2; // fallback if photo dimensions can't be read
+          if (photoUrl) {
+            try {
+              const { width, height } = await loadImageDimensions(photoUrl);
+              planeHeight = height / width; // plane width fixed at 1, height scales to match
+            } catch (e) {
+              console.warn(
+                "Could not load photo dimensions, using default aspect ratio"
+              );
+            }
+          }
+
+          mindarThree = new MindARThree({
+            container: document.querySelector("#ar-container"),
+            imageTargetSrc: mindFileUrl,
+            filterMinCF: 0.0001,
+            filterBeta: 10000,
+            warmupTolerance: 1,
+            missTolerance: 2,
+          });
+
+          const { renderer, scene, camera } = mindarThree;
+
+          videoEl = document.createElement("video");
+          videoEl.src = videoUrl;
+          videoEl.crossOrigin = "anonymous";
+          videoEl.loop = true;
+          videoEl.muted = false;
+          videoEl.playsInline = true;
+
+          const texture = new THREE.VideoTexture(videoEl);
+          const geometry = new THREE.PlaneGeometry(1, planeHeight);
+          const material = new THREE.MeshBasicMaterial({
+            map: texture,
+            side: THREE.DoubleSide,
+          });
+          const plane = new THREE.Mesh(geometry, material);
+
+          const anchor = mindarThree.addAnchor(0);
+          anchor.group.add(plane);
+
+          anchor.onTargetFound = () => {
+            statusEl.textContent = "Playing memory...";
+            videoEl.play();
+          };
+          anchor.onTargetLost = () => {
+            statusEl.textContent = "Point your camera at the photo...";
+            videoEl.pause();
+          };
+
+          await mindarThree.start();
+          renderer.setAnimationLoop(() => {
+            renderer.render(scene, camera);
+          });
+        } catch (err) {
+          startOverlay.style.display = "flex";
+          statusEl.style.display = "none";
+          debugP.textContent = "ERROR: " + err.name + " - " + err.message;
+          startButton.style.display = "inline-block";
+          startButton.textContent = "Retry";
+        }
+      }
+
+      window.addEventListener("resize", () => {
+        if (mindarThree) {
+          mindarThree.renderer.setSize(window.innerWidth, window.innerHeight);
+          mindarThree.camera.aspect = window.innerWidth / window.innerHeight;
+          mindarThree.camera.updateProjectionMatrix();
+        }
+      });
+    </script>
+  </body>
+</html>

@@ -5,7 +5,7 @@ import os
 MIND_COMPILER_DIR = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..", "..", "..", "mind-compiler")
 )
-NODE_EXECUTABLE = r"C:\nvm4w\nodejs\node.exe"
+NODE_EXECUTABLE = r"C:\Users\SYED SHIFAL\AppData\Local\nvm\v20.20.2\node.exe"
 
 
 class MindFileGenerationError(Exception):

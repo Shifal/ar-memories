@@ -10,8 +10,13 @@ class Settings(BaseSettings):
     storage_dir: str = "./storage"
     supabase_url: str
     supabase_service_key: str
+    allowed_origins: str = "http://localhost:5500"
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+
+    @property
+    def allowed_origins_list(self) -> list[str]:
+        return [origin.strip() for origin in self.allowed_origins.split(",") if origin.strip()]
 
 
 settings = Settings()
