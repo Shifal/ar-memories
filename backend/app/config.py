@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     supabase_url: str
     supabase_service_key: str
     allowed_origins: str = "http://localhost:5500"
+    node_executable_path: str = "node"
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 

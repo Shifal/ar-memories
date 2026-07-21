@@ -3,10 +3,11 @@ import tempfile
 import os
 from PIL import Image
 
+from app.config import settings
+
 MIND_COMPILER_DIR = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..", "..", "..", "mind-compiler")
 )
-NODE_EXECUTABLE = r"C:\Users\SYED SHIFAL\AppData\Local\nvm\v20.20.2\node.exe"
 
 MAX_DIMENSION = 1024
 
@@ -16,7 +17,6 @@ class MindFileGenerationError(Exception):
 
 
 def _downscale_if_needed(input_path: str) -> str:
-    """Resizes the image in-place if it's larger than MAX_DIMENSION on either side."""
     with Image.open(input_path) as img:
         width, height = img.size
         if max(width, height) <= MAX_DIMENSION:
@@ -40,7 +40,7 @@ def generate_mind_file(photo_bytes: bytes) -> bytes:
         _downscale_if_needed(photo_path)
 
         result = subprocess.run(
-            [NODE_EXECUTABLE, "compile.js", photo_path, mind_output_path],
+            [settings.node_executable_path, "compile.js", photo_path, mind_output_path],
             cwd=MIND_COMPILER_DIR,
             capture_output=True,
             text=True,
