@@ -20,11 +20,11 @@ https://github.com/user-attachments/assets/0a46ed83-cd37-4f3d-ba58-1efc94724ec5
 
 | Splash | Home | Add Memory |
 |---|---|---|
-| ![Splash](docs/screenshots/splash.png) | ![Home](docs/screenshots/homepage.png) | ![Add Memory](docs/screenshots/upload.png) |
+| ![Splash](docs\screenshots\splash.jpeg) | ![Home](docs/screenshots/homepage.jpeg) | ![Add Memory](docs/screenshots/upload.jpeg) |
 
 | Scan | Profile |
 |---|---|
-| ![Scan](docs/screenshots/scan.png) | ![Profile](docs/screenshots/profile.png) |
+| ![Scan](docs/screenshots/scan.jpeg) | ![Profile](docs/screenshots/profile.jpeg) |
 
 ---
 
