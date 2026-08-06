@@ -1,6 +1,6 @@
 FROM python:3.12-slim
 
-# Install Node.js 20 + system libraries needed by node-canvas
+# Install Node.js 20 + system libraries needed by node-canvas + ffmpeg for video validation
 RUN apt-get update && apt-get install -y \
     curl \
     build-essential \
@@ -9,6 +9,7 @@ RUN apt-get update && apt-get install -y \
     libjpeg-dev \
     libgif-dev \
     librsvg2-dev \
+    ffmpeg \
     && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get install -y nodejs \
     && rm -rf /var/lib/apt/lists/*
