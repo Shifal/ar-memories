@@ -44,7 +44,7 @@ def generate_mind_file(photo_bytes: bytes) -> bytes:
             cwd=MIND_COMPILER_DIR,
             capture_output=True,
             text=True,
-            timeout=120,
+            timeout=240,
         )
 
         if result.returncode != 0 or not os.path.exists(mind_output_path):
